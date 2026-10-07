@@ -321,12 +321,42 @@ body.tv.show-extra #voucher { display: block; }
 @keyframes vo-pop { from { transform: scale(1.8); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* ---------- Öffentliche Nur-Lesen-Ansicht ---------- */
-body.public::before { background: radial-gradient(ellipse at top, #3d7a26, #1d2a12 70%); filter: none; }
 body.public .toolbar, body.public .tvswitch, body.public .edit, body.public .chip.add { display: none; }
 body.public .slot, body.public .chip { cursor: default; }
-body.public .pubtitle { display: block; }
-.pubtitle { display: none; max-width: 1300px; margin: 0 auto; padding: 26px 18px 0; text-align: center;
-  font-size: 34px; font-weight: 700; color: var(--gold); text-shadow: 3px 3px 0 #000; }
+.rhead { display: none; }
+/* Laufendes bzw. nächstes Spiel hervorheben */
+body.public .match.next .box { animation: nextglow 1.4s ease-in-out infinite; }
+body.public .match.next::after { content: "\25B6  JETZT"; position: absolute; top: -12px; right: 8px; z-index: 3;
+  background: var(--gold); color: #3b2a00; border: 2px solid #3b2a00; padding: 2px 7px; font-size: 11px; font-weight: 700; }
+@keyframes nextglow { 50% { box-shadow: inset 0 0 0 3px var(--gold), 0 0 22px rgba(255,204,51,.9); } }
+
+/* Smartphones: kompakter Turnierbaum, zwei Spiele nebeneinander, Runden als Überschriften */
+@media (max-width: 860px) {
+  body.public .field { padding: 18px 10px 30px; }
+  body.public .bracket { grid-template-columns: 1fr 1fr; grid-column-gap: 10px; column-gap: 10px; grid-row-gap: 18px; row-gap: 18px; }
+  body.public .rhead { display: block; grid-column: 1 / 3; text-align: center; font-weight: 700; font-size: 20px; color: var(--gold);
+    text-shadow: 2px 2px 0 #5a3d00, 4px 4px 0 #000; margin-top: 6px; }
+  body.public .rh-qf { order: 1; } body.public .rh-sf { order: 6; } body.public .rh-f { order: 9; }
+  body.public .qf1, body.public .qf2, body.public .qf3, body.public .wcm, body.public .sf1, body.public .sf2 { grid-column: auto; }
+  body.public .qf1 { order: 2; } body.public .qf2 { order: 3; } body.public .qf3 { order: 4; } body.public .wcm { order: 5; }
+  body.public .sf1 { order: 7; } body.public .sf2 { order: 8; }
+  body.public .center { order: 10; grid-column: 1 / 3; }
+  body.public .center > * + * { margin-top: 22px; }
+  body.public .qf1 .label, body.public .qf2 .label, body.public .qf3 .label, body.public .sf1 .label, body.public .sf2 .label { display: none; }
+  body.public .label { font-size: 13px; padding: 4px 10px 6px; }
+  body.public .final .label { font-size: 17px; }
+  body.public .box { padding: 5px; }
+  body.public .box > * + * { margin-top: 5px; }
+  body.public .slot { min-height: 40px; padding: 4px 6px; font-size: 13px; border-width: 2px; }
+  body.public .slot > * + * { margin-left: 6px; }
+  body.public .slot .block { width: 20px; height: 20px; }
+  body.public .slot .ticket { width: 22px; height: 20px; font-size: 12px; }
+  body.public .slot.winner::after { width: 18px; height: 18px; margin-left: 4px; }
+  body.public .final .slot { min-height: 50px; font-size: 17px; }
+  body.public .hint { font-size: 10px; }
+  body.public .pool .chip { font-size: 14px; }
+  body.public .podium { margin-top: 30px; }
+}
 #pwgate { display: none; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 60; align-items: center; justify-content: center;
   background: rgba(0,0,0,.85); }
 #pwgate form { background: #c6c6c6; color: #222; border: 4px solid #111; padding: 22px; width: 340px; max-width: 92vw;
@@ -376,6 +406,7 @@ body.public .pubtitle { display: block; }
   </section>
 
   <div class="bracket" id="bracket">
+    <div class="rhead rh-qf">Viertelfinale</div><div class="rhead rh-sf">Halbfinale</div><div class="rhead rh-f">Finale</div>
     <svg id="lines"></svg>
     <section class="match qf1" data-match="qf1"><div class="label">Viertelfinale</div><div class="box"></div></section>
     <section class="match qf2" data-match="qf2"><div class="label">Viertelfinale</div><div class="box"></div></section>
@@ -555,6 +586,13 @@ function render() {
   let wcHint = wcBox.parentElement.querySelector(".hint");
   if (!wcHint) { wcHint = el("div", "hint"); wcBox.parentElement.appendChild(wcHint); }
   wcHint.textContent = "direkt ins Halbfinale";
+
+  // Nächstes offenes Spiel (öffentliche Ansicht hebt es hervor)
+  const nextM = ["qf1", "qf2", "qf3", "sf1", "sf2", "third", "final"].filter(m => {
+    const [a, b] = participants(m);
+    return a && b && !state.winners[m];
+  })[0];
+  document.querySelectorAll(".match[data-match]").forEach(sec => sec.classList.toggle("next", !rollView && sec.dataset.match === nextM));
 
   renderPool();
   renderPodium();

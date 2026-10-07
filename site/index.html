@@ -323,6 +323,8 @@ body.tv.show-extra #voucher { display: block; }
 /* ---------- Öffentliche Nur-Lesen-Ansicht ---------- */
 body.public .toolbar, body.public .tvswitch, body.public .edit, body.public .chip.add { display: none; }
 body.public .slot, body.public .chip { cursor: default; }
+body.public .rules-mobile { display: none !important; }   /* Regeln stehen schon auf dem Plakat */
+body.public #status { top: 8px; right: 8px; bottom: auto; font-size: 10px; padding: 4px 7px; background: rgba(0,0,0,.6); }
 .rhead { display: none; }
 /* Laufendes bzw. nächstes Spiel hervorheben */
 body.public .match.next .box { animation: nextglow 1.4s ease-in-out infinite; }

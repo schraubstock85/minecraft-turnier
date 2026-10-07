@@ -13,9 +13,19 @@ window.TURNIER_PUBLIC = true;
     return crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64(salt), iterations: iter, hash: "SHA-256" },
                                    base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
   }
+  async function decryptRaw(box, k) {
+    return crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(box.iv) }, k, b64(box.ct));
+  }
   async function decrypt(box, k) {
-    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(box.iv) }, k, b64(box.ct));
-    return JSON.parse(new TextDecoder().decode(plain));
+    return JSON.parse(new TextDecoder().decode(await decryptRaw(box, k)));
+  }
+  // Plakat (mit Namen) liegt ebenfalls verschlüsselt im Repo und wird erst nach dem Entsperren gezeigt
+  async function loadPoster(k) {
+    try {
+      const box = await (await fetch("poster.json")).json();
+      const blob = new Blob([await decryptRaw(box, k)], { type: "image/jpeg" });
+      document.documentElement.style.setProperty("--poster", "url(" + URL.createObjectURL(blob) + ")");
+    } catch (e) { /* ohne Plakat geht es auch */ }
   }
   async function fetchBox() {
     const r = await fetch("data.json?t=" + Date.now(), { cache: "no-store" });
@@ -54,6 +64,7 @@ window.TURNIER_PUBLIC = true;
         const k = await deriveKey(pw, box.salt, box.iter);
         const data = await decrypt(box, k);
         key = k; keySalt = box.salt;
+        loadPoster(k);
         localStorage.setItem(STORE, pw);
         document.getElementById("pwgate").style.display = "none";
         return data;

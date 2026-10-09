@@ -458,7 +458,8 @@ const DEPENDENTS = { qf1: ["sf1"], qf2: ["sf1"], qf3: ["sf2"], sf1: ["final", "t
                      sf2: ["final", "third"], final: [], third: [] };
 
 let state = { version: 0, names: {}, winners: {}, pool: [], drawId: 0 };
-let rollView = null;   // während der Los-Animation angezeigte Namen
+let rollView = null;
+let rollSettled = {};   // während der Animation schon gelandete Namen   // während der Los-Animation angezeigte Namen
 const NEEDED = NAME_KEYS.length;
 const isDrawn = () => NAME_KEYS.some(k => state.names[k]);
 const nameOf = k => (rollView || state.names)[k] || "";
@@ -528,7 +529,7 @@ function render() {
       const name = i === 0 ? a : b;
       const isEntry = !!src.n;
       let cls = name ? "" : (isEntry ? "empty" : "waiting");
-      if (rollView && isEntry) cls += " rolling";
+      if (rollView && isEntry && !rollSettled[src.n]) cls += " rolling";
       if (w) cls += w === side ? " winner" : " loser";
       const placeholder = isEntry ? PLAYER_LABEL[src.n] : "???";
       const onClick = ready ? () => pickWinner(m, side) : null;
@@ -546,7 +547,7 @@ function render() {
   wcBox.innerHTML = "";
   const wcName = nameOf("wc");
   const wcSlot = wcBox.appendChild(slotEl({ name: wcName, placeholder: "Wildcard", icon: "ticket",
-                             cls: (wcName ? "" : "empty") + (rollView ? " rolling" : ""),
+                             cls: (wcName ? "" : "empty") + (rollView && !rollSettled.wc ? " rolling" : ""),
                              onClick: wcName && !rollView ? () => editName("wc") : null }));
   wcSlot.dataset.key = "wc";
   let wcHint = wcBox.parentElement.querySelector(".hint");
@@ -813,7 +814,7 @@ let lastDrawId = 0;
 function rollDraw(done) {
   const pool = state.pool.length ? state.pool : NAME_KEYS.map(k => state.names[k]);
   const BASE = TV ? 2500 : 1400, STEP = TV ? 900 : 350, TICK = TV ? 180 : 90;
-  const settled = {};
+  const settled = rollSettled = {};
   const start = Date.now();
   rollView = {};
   NAME_KEYS.forEach(k => { rollView[k] = pool[Math.floor(Math.random() * pool.length)]; });
@@ -821,16 +822,15 @@ function rollDraw(done) {
   const tick = setInterval(() => {
     const t = Date.now() - start;
     NAME_KEYS.forEach((k, i) => {
-      const slot = document.querySelector('.slot[data-key="' + k + '"]');
+      const slots = document.querySelectorAll('.slot[data-key="' + k + '"]');   // Wildcard steht zweimal
       if (settled[k]) return;
       if (t > BASE + i * STEP) {
         settled[k] = true;
         rollView[k] = state.names[k];
-        if (slot) { slot.classList.remove("rolling"); slot.classList.add("landed"); }
+        slots.forEach(sl => { sl.classList.remove("rolling"); sl.classList.add("landed"); });
         tone(520 + i * 60, 0, .12, "square", .06);
       } else rollView[k] = pool[Math.floor(Math.random() * pool.length)];
-      const nm = slot && slot.querySelector(".name");
-      if (nm) nm.textContent = rollView[k];
+      slots.forEach(sl => { sl.querySelector(".name").textContent = rollView[k]; });
     });
     tone(300 + Math.random() * 500, 0, .04, "square", .03);
     if (Object.keys(settled).length === NAME_KEYS.length) {

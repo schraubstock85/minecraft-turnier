@@ -842,14 +842,8 @@ function rollDraw(done) {
   rollView = {};
   NAME_KEYS.forEach(k => { rollView[k] = pool[Math.floor(Math.random() * pool.length)]; });
   render();
-  // Messung für die Fehlersuche am Fernseher: echte Bildwechsel und Takt
-  const meter = { frames: 0, ticks: [], audio: audio ? audio.state : "keins", delay: Date.now() - state.drawId };
-  let lastTick = start;
-  const countFrame = () => { meter.frames++; if (rollView) requestAnimationFrame(countFrame); };
-  requestAnimationFrame(countFrame);
   const tick = rollTimer = setInterval(() => {
     const t = Date.now() - start;
-    meter.ticks.push(Date.now() - lastTick); lastTick = Date.now();
     NAME_KEYS.forEach((k, i) => {
       const slots = document.querySelectorAll('.slot[data-key="' + k + '"]');   // Wildcard steht zweimal
       if (settled[k]) return;
@@ -869,10 +863,6 @@ function rollDraw(done) {
         render();
         fanfare();
         if (done) done();
-        if (TV) {
-          meter.dauer = Date.now() - start;
-          fetch("api/tvlog", { method: "POST", body: JSON.stringify(meter) }).catch(() => {});
-        }
       }, TV ? 1050 : 300);
     }
   }, TICK);

@@ -475,7 +475,8 @@ const DEPENDENTS = { qf1: ["sf1"], qf2: ["sf1"], qf3: ["sf2"], sf1: ["final", "t
 let state = { version: 0, names: {}, winners: {}, pool: [], drawId: 0 };
 let rollView = null;
 let rollSettled = {};   // während der Animation schon gelandete Namen
-let rollTimer = null;   // während der Los-Animation angezeigte Namen
+let rollTimer = null;
+let rollLandTimers = [];   // während der Los-Animation angezeigte Namen
 const NEEDED = NAME_KEYS.length;
 const isDrawn = () => NAME_KEYS.some(k => state.names[k]);
 const nameOf = k => (rollView || state.names)[k] || "";
@@ -832,43 +833,63 @@ async function poll(first) {
 let lastDrawId = 0;
 // Auslosung als Namens-Roulette. Der Fernseher ist langsamer und wird aus Entfernung
 // angeschaut: dort länger und mit ruhigerem Takt, und pro Takt werden nur die Namen
-// getauscht statt die ganze Seite neu aufzubauen.
+// getauscht statt die ganze Seite neu aufzubauen. Der Ton läuft unabhängig davon:
+// Er wird zu Beginn komplett im Audio-Takt vorausgeplant, damit er auf dem Fernseher
+// nicht mit dem langsameren Bildtakt mitstottert.
+let rollBus = null;
 function rollDraw(done) {
   const pool = state.pool.length ? state.pool : NAME_KEYS.map(k => state.names[k]);
-  const BASE = TV ? 3750 : 1400, STEP = TV ? 1350 : 350, TICK = TV ? 375 : 90;
+  const BASE = TV ? 3750 : 1400, STEP = TV ? 1350 : 350, TICK = TV ? 375 : 90, RATTLE = 90;
+  const lands = NAME_KEYS.map((k, i) => BASE + i * STEP);
+  const end = lands[lands.length - 1];
   clearInterval(rollTimer);   // falls doch schon eine läuft: neu beginnen statt zwei parallel
+  rollLandTimers.forEach(clearTimeout);
+  if (rollBus) { try { rollBus.disconnect(); } catch (e) { /* schon getrennt */ } }
   const settled = rollSettled = {};
-  const start = Date.now();
   rollView = {};
   NAME_KEYS.forEach(k => { rollView[k] = pool[Math.floor(Math.random() * pool.length)]; });
   render();
-  const tick = rollTimer = setInterval(() => {
-    const t = Date.now() - start;
-    NAME_KEYS.forEach((k, i) => {
-      const slots = document.querySelectorAll('.slot[data-key="' + k + '"]');   // Wildcard steht zweimal
-      if (settled[k]) return;
-      if (t > BASE + i * STEP) {
-        settled[k] = true;
-        rollView[k] = state.names[k];
-        slots.forEach(sl => { sl.classList.remove("rolling"); sl.classList.add("landed"); });
-        tone(520 + i * 60, 0, .12, "square", .06);
-      } else rollView[k] = pool[Math.floor(Math.random() * pool.length)];
-      slots.forEach(sl => { sl.querySelector(".name").textContent = rollView[k]; });
+
+  // Ton: Rattern alle 90 ms bis zum letzten Namen, dazu je ein Ton beim Landen
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    rollBus = audio.createGain();
+    rollBus.connect(audio.destination);
+    for (let t = 0; t < end; t += RATTLE) tone(300 + Math.random() * 500, t / 1000, .04, "square", .03, rollBus);
+    lands.forEach((t, i) => tone(520 + i * 60, t / 1000, .12, "square", .06, rollBus));
+  } catch (e) { /* kein Ton, kein Problem */ }
+
+  const show = k => {
+    document.querySelectorAll('.slot[data-key="' + k + '"]').forEach(sl => {   // Wildcard steht zweimal
+      sl.querySelector(".name").textContent = rollView[k];
     });
-    tone(300 + Math.random() * 500, 0, .04, "square", .03);
+  };
+  // Landen genau zum geplanten Zeitpunkt (passend zum Ton), nicht erst beim nächsten Bildtakt
+  rollLandTimers = NAME_KEYS.map((k, i) => setTimeout(() => {
+    settled[k] = true;
+    rollView[k] = state.names[k];
+    show(k);
+    document.querySelectorAll('.slot[data-key="' + k + '"]').forEach(sl => { sl.classList.remove("rolling"); sl.classList.add("landed"); });
+  }, lands[i]));
+  rollTimer = setInterval(() => {
+    NAME_KEYS.forEach(k => {
+      if (settled[k]) return;
+      rollView[k] = pool[Math.floor(Math.random() * pool.length)];
+      show(k);
+    });
     if (Object.keys(settled).length === NAME_KEYS.length) {
-      clearInterval(tick);
-      setTimeout(() => {
+      clearInterval(rollTimer);
+      rollLandTimers.push(setTimeout(() => {
         rollView = null;
         render();
         fanfare();
         if (done) done();
-      }, TV ? 1050 : 300);
+      }, TV ? 1050 : 300));
     }
   }, TICK);
 }
 let audio;
-function tone(freq, start, dur, type = "square", vol = .06) {
+function tone(freq, start, dur, type = "square", vol = .06, bus = null) {
   try {
     audio = audio || new (window.AudioContext || window.webkitAudioContext)();
     if (audio.state === "suspended") audio.resume();
@@ -876,7 +897,7 @@ function tone(freq, start, dur, type = "square", vol = .06) {
     o.type = type; o.frequency.value = freq;
     g.gain.setValueAtTime(vol, audio.currentTime + start);
     g.gain.exponentialRampToValueAtTime(.0001, audio.currentTime + start + dur);
-    o.connect(g).connect(audio.destination);
+    o.connect(g).connect(bus || audio.destination);
     o.start(audio.currentTime + start); o.stop(audio.currentTime + start + dur);
   } catch (e) { /* kein Ton, kein Problem */ }
 }

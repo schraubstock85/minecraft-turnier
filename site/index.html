@@ -330,10 +330,17 @@ body.public .match.next::after { content: "\25B6  JETZT"; position: absolute; to
 #pwgate h3 { margin: 0; font-size: 20px; }
 #pwgate input { display: block; width: 100%; font: inherit; font-size: 20px; padding: 10px; background: #000; color: #fff; border: 3px solid #a0a0a0; }
 #pwmsg { min-height: 1.2em; font-size: 14px; color: #8f2a1f; }
+
+/* Fernseher: Browser spielen Ton erst nach einem Klick ab */
+#soundhint { display: none; position: fixed; left: 16px; bottom: 16px; z-index: 45; align-items: center; padding: 10px 16px;
+  background: rgba(0,0,0,.8); border: 3px solid var(--gold); color: var(--gold); font-weight: 700; font-size: 18px; cursor: pointer; }
+#soundhint svg { width: 28px; height: 28px; margin-right: 10px; }
+body.tv.mute #soundhint { display: flex; }
 </style>
 </head>
 <body>
 
+<div id="soundhint"><svg viewBox="0 0 24 24"><path d="M3 9h4l5-4v14l-5-4H3z" fill="currentColor"/><path d="M16 8c1.5 1.2 1.5 6.8 0 8M19 5c3 2.5 3 11.5 0 14" stroke="currentColor" stroke-width="2" fill="none"/></svg>Für Ton einmal hier klicken</div>
 <div id="pwgate"><form id="pwform"><h3>Turnierplan</h3><input id="pwinput" type="password" placeholder="Passwort" autocomplete="current-password"><div id="pwmsg"></div><button class="btn green" type="submit">Öffnen</button></form></div>
 <div id="stage">
 <div class="banner" role="img" aria-label="Turnierplakat"></div>
@@ -459,7 +466,8 @@ const DEPENDENTS = { qf1: ["sf1"], qf2: ["sf1"], qf3: ["sf2"], sf1: ["final", "t
 
 let state = { version: 0, names: {}, winners: {}, pool: [], drawId: 0 };
 let rollView = null;
-let rollSettled = {};   // während der Animation schon gelandete Namen   // während der Los-Animation angezeigte Namen
+let rollSettled = {};   // während der Animation schon gelandete Namen
+let rollTimer = null;   // während der Los-Animation angezeigte Namen
 const NEEDED = NAME_KEYS.length;
 const isDrawn = () => NAME_KEYS.some(k => state.names[k]);
 const nameOf = k => (rollView || state.names)[k] || "";
@@ -784,8 +792,12 @@ async function save() {
   }
 }
 
+// Nie zwei Abfragen gleichzeitig: Auf dem langsamen Fernseher dauert eine Abfrage teils länger
+// als der Takt, dann hätten beide die neue Auslosung erkannt und zwei Animationen gestartet.
+let polling = false;
 async function poll(first) {
-  if (document.querySelector("dialog[open]")) return;
+  if (document.querySelector("dialog[open]") || polling) return;
+  polling = true;
   try {
     const s = PUBLIC ? await window.turnierLoad()
                      : await (await fetch("api/state", { cache: "no-store" })).json();
@@ -803,6 +815,8 @@ async function poll(first) {
     } else setStatus("● live");
   } catch (e) {
     setStatus("✖ Server nicht erreichbar", true);
+  } finally {
+    polling = false;
   }
 }
 
@@ -814,12 +828,13 @@ let lastDrawId = 0;
 function rollDraw(done) {
   const pool = state.pool.length ? state.pool : NAME_KEYS.map(k => state.names[k]);
   const BASE = TV ? 2500 : 1400, STEP = TV ? 900 : 350, TICK = TV ? 180 : 90;
+  clearInterval(rollTimer);   // falls doch schon eine läuft: neu beginnen statt zwei parallel
   const settled = rollSettled = {};
   const start = Date.now();
   rollView = {};
   NAME_KEYS.forEach(k => { rollView[k] = pool[Math.floor(Math.random() * pool.length)]; });
   render();
-  const tick = setInterval(() => {
+  const tick = rollTimer = setInterval(() => {
     const t = Date.now() - start;
     NAME_KEYS.forEach((k, i) => {
       const slots = document.querySelectorAll('.slot[data-key="' + k + '"]');   // Wildcard steht zweimal
@@ -848,6 +863,7 @@ let audio;
 function tone(freq, start, dur, type = "square", vol = .06) {
   try {
     audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === "suspended") audio.resume();
     const o = audio.createOscillator(), g = audio.createGain();
     o.type = type; o.frequency.value = freq;
     g.gain.setValueAtTime(vol, audio.currentTime + start);
@@ -905,6 +921,22 @@ function setScreen(scr) {
 document.getElementById("btnScreenStart").addEventListener("click", () => setScreen("start"));
 document.getElementById("btnScreenTurnier").addEventListener("click", () => setScreen("turnier"));
 window.addEventListener("resize", fitKickoff);
+
+// Ton am Fernseher: ohne Klick hält der Browser das Audio an. Hinweis zeigen, bis jemand
+// einmal mit der Fernbedienung klickt; danach bleibt der Ton bis zum nächsten Neuladen an.
+if (TV) {
+  try {
+    audio = new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state !== "running") document.body.classList.add("mute");
+    const unlock = () => {
+      audio.resume().then(() => {
+        if (audio.state === "running") { document.body.classList.remove("mute"); blip(660); }
+      });
+    };
+    document.addEventListener("click", unlock);
+    document.addEventListener("keydown", unlock);
+  } catch (e) { /* ohne Web Audio kein Ton */ }
+}
 
 document.fonts.ready.then(() => { fit(); drawLines(); fitKickoff(); });
 poll(true);

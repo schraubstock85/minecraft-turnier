@@ -263,45 +263,22 @@ body.tv.drawn .toolbar { display: none; }   /* TV: nach der Auslosung nur noch a
 body.tv .edit, body.tv .chip.add { display: none; }
 body.tv .podium { margin-top: 22px; }
 
-/* ---------- Startbildschirm im FC-Bayern-Stil (nur Fernseher) ---------- */
-@font-face { font-family: "Anton"; font-weight: 400; src: url(Anton-400.woff2) format("woff2"); }
+/* ---------- Startbild: nur das Turnierplakat (nur Fernseher) ---------- */
 .tvswitch { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; margin: 0 0 18px; }
 .tvswitch > * { margin: 4px 6px; }
 .tvswitch .lbl { font-weight: 700; font-size: 15px; text-shadow: 2px 2px 0 #000; }
 .tvswitch .btn.active { outline: 4px solid var(--gold); }
 body.tv .tvswitch { display: none; }
 
-#kickoff { display: none; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 30; overflow: hidden;
-  background: #6d0013; }
+#kickoff { display: none; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 30; overflow: hidden; background: #1d2a12; }
 body.tv.show-start #kickoff { display: block; }
-.ko-stage { position: absolute; top: 0; left: 0; width: 1600px; height: 900px; transform-origin: 0 0; overflow: hidden;
-  font-family: "Anton", Impact, "Arial Black", sans-serif; color: #fff;
-  background:
-    radial-gradient(ellipse at 30% 10%, rgba(255,255,255,.28), transparent 45%),
-    radial-gradient(ellipse at 85% 0%, rgba(255,255,255,.22), transparent 40%),
-    repeating-linear-gradient(115deg, rgba(0,0,0,.07) 0 70px, transparent 70px 140px),
-    linear-gradient(160deg, #e3073a 0%, #c4022a 55%, #8a0019 100%); }
-.ko-raute { position: absolute; left: 0; right: 0; bottom: 0; height: 74px; border-top: 6px solid #fff;
-  background-color: #fff;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='68'%3E%3Cpath d='M28 0 56 34 28 68 0 34z' fill='%230066b2'/%3E%3C/svg%3E");
-  background-size: 56px 68px; background-position: 0 3px; }
-.ko-jersey { position: absolute; left: 70px; top: 110px; width: 600px; height: 660px;
-  filter: drop-shadow(0 30px 40px rgba(0,0,0,.5)); animation: ko-float 5s ease-in-out infinite; }
-@keyframes ko-float { 50% { transform: translateY(-14px) rotate(-1.5deg); } }
-.ko-text { position: absolute; left: 720px; top: 22px; width: 820px; text-align: center; }
-.ko-logo { display: block; width: 270px; height: 247px; margin: 0 auto 6px; filter: drop-shadow(0 10px 20px rgba(0,0,0,.45)); }
-.ko-small { font-size: 46px; letter-spacing: 12px; text-shadow: 0 4px 0 rgba(0,0,0,.25); }
-.ko-big { font-size: 150px; line-height: 1; margin-top: 10px; text-shadow: 0 8px 0 #8a0019, 0 16px 30px rgba(0,0,0,.4); }
-.ko-big span { display: block; }
-.ko-banner { display: inline-block; margin-top: 26px; padding: 10px 46px; background: #fff; color: #dc052d;
-  font-size: 80px; transform: rotate(-4deg); box-shadow: 0 12px 0 #0066b2, 0 22px 30px rgba(0,0,0,.35);
-  animation: ko-pulse 2.4s ease-in-out infinite; }
-@keyframes ko-pulse { 50% { transform: rotate(-4deg) scale(1.06); } }
-.ko-board { position: absolute; left: 60px; top: 26px; background: #0b0b0b; border: 5px solid #fff;
-  padding: 6px 22px; font-size: 40px; letter-spacing: 3px; color: #fff; }
-.ko-board b { color: #ffcf2e; font-weight: 400; margin-left: 14px; }
-.ko-ball { position: absolute; width: 90px; height: 90px; animation: ko-bounce 3.2s ease-in-out infinite; }
-@keyframes ko-bounce { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-60px) rotate(180deg); } }
+.ko-stage { position: absolute; top: 0; left: 0; width: 1600px; height: 900px; transform-origin: 0 0; overflow: hidden; }
+.ko-bg { position: absolute; top: -60px; right: -60px; bottom: -60px; left: -60px; background: var(--poster, none) center top / cover;
+  filter: blur(18px) brightness(.5) saturate(1.2); }
+/* Plakatkopf 1448×590 (wie das Banner der Turnierseite), auf volle Breite */
+.ko-poster { position: absolute; left: 0; top: 124px; width: 1600px; height: 652px; background: var(--poster, none) center top / 100% auto no-repeat;
+  box-shadow: 0 20px 60px rgba(0,0,0,.7); animation: ko-breathe 12s ease-in-out infinite; }
+@keyframes ko-breathe { 50% { transform: scale(1.025); } }
 
 
 /* ---------- Öffentliche Nur-Lesen-Ansicht ---------- */
@@ -875,7 +852,7 @@ function confetti() {
 }
 
 
-// ---------- Startbildschirm (FC-Bayern-Stil) ----------
+// ---------- Startbild (Turnierplakat) ----------
 let shownScreen;
 function renderScreen() {
   const scr = state.screen === "start" ? "start" : "turnier";
@@ -885,8 +862,8 @@ function renderScreen() {
   if (TV && scr !== shownScreen) {
     const first = shownScreen === undefined;
     if (scr === "start" && !first) {
-      bayernConfetti();
-      [392, 392, 523, 392, 659, 523].forEach((f, i) => tone(f, i * .18, .25));
+      confetti();
+      fanfare();
     }
   }
   shownScreen = scr;
@@ -896,28 +873,8 @@ function renderScreen() {
 function fitKickoff() {
   if (!TV) return;
   const k = Math.min(innerWidth / 1600, innerHeight / 900);
-  ["koStage"].forEach(id => {
-    document.getElementById(id).style.transform =
-      `translate(${(innerWidth - 1600 * k) / 2}px, ${(innerHeight - 900 * k) / 2}px) scale(${k})`;
-  });
-}
-function bayernConfetti() {
-  const colors = ["#dc052d", "#ffffff", "#0066b2", "#ffffff"];
-  for (let i = 0; i < 140; i++) {
-    const c = el("div", "confetti");
-    c.style.left = Math.random() * 100 + "vw";
-    c.style.background = colors[i % colors.length];
-    c.style.animationDuration = 2.5 + Math.random() * 2.5 + "s";
-    c.style.animationDelay = Math.random() * 1.2 + "s";
-    document.body.appendChild(c);
-    setTimeout(() => c.remove(), 6500);
-  }
-}
-function tickClock() {
-  if (!document.getElementById("koClock")) return;
-  const d = new Date();
-  document.getElementById("koClock").textContent =
-    ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+  document.getElementById("koStage").style.transform =
+    `translate(${(innerWidth - 1600 * k) / 2}px, ${(innerHeight - 900 * k) / 2}px) scale(${k})`;
 }
 function setScreen(scr) {
   if (state.screen === scr) return;
@@ -928,8 +885,6 @@ function setScreen(scr) {
 document.getElementById("btnScreenStart").addEventListener("click", () => setScreen("start"));
 document.getElementById("btnScreenTurnier").addEventListener("click", () => setScreen("turnier"));
 window.addEventListener("resize", fitKickoff);
-tickClock();
-setInterval(tickClock, 10000);
 
 document.fonts.ready.then(() => { fit(); drawLines(); fitKickoff(); });
 poll(true);

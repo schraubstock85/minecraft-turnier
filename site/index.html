@@ -336,6 +336,14 @@ body.public .match.next::after { content: "\25B6  JETZT"; position: absolute; to
   background: rgba(0,0,0,.8); border: 3px solid var(--gold); color: var(--gold); font-weight: 700; font-size: 18px; cursor: pointer; }
 #soundhint svg { width: 28px; height: 28px; margin-right: 10px; }
 body.tv.mute #soundhint { display: flex; }
+
+/* Fernseher: schwache Grafik. Kein Helligkeitsfilter beim Rattern (wird sonst ständig neu
+   berechnet), Landen nur per transform, unscharfer Hintergrund als eigene Ebene (einmal
+   weichzeichnen statt bei jeder Namensänderung). */
+body.tv::before { will-change: transform; transform: translateZ(0); }
+body.tv .slot.rolling { animation: none; border-color: var(--gold); }
+body.tv .slot.landed { animation: land-tv .45s ease-out; }
+@keyframes land-tv { 0% { transform: scale(1.18); } 100% { transform: none; } }
 </style>
 </head>
 <body>
@@ -827,7 +835,7 @@ let lastDrawId = 0;
 // getauscht statt die ganze Seite neu aufzubauen.
 function rollDraw(done) {
   const pool = state.pool.length ? state.pool : NAME_KEYS.map(k => state.names[k]);
-  const BASE = TV ? 2500 : 1400, STEP = TV ? 900 : 350, TICK = TV ? 180 : 90;
+  const BASE = TV ? 2500 : 1400, STEP = TV ? 900 : 350, TICK = TV ? 250 : 90;
   clearInterval(rollTimer);   // falls doch schon eine läuft: neu beginnen statt zwei parallel
   const settled = rollSettled = {};
   const start = Date.now();

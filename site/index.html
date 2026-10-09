@@ -835,7 +835,7 @@ let lastDrawId = 0;
 // getauscht statt die ganze Seite neu aufzubauen.
 function rollDraw(done) {
   const pool = state.pool.length ? state.pool : NAME_KEYS.map(k => state.names[k]);
-  const BASE = TV ? 2500 : 1400, STEP = TV ? 900 : 350, TICK = TV ? 250 : 90;
+  const BASE = TV ? 3750 : 1400, STEP = TV ? 1350 : 350, TICK = TV ? 375 : 90;
   clearInterval(rollTimer);   // falls doch schon eine läuft: neu beginnen statt zwei parallel
   const settled = rollSettled = {};
   const start = Date.now();
@@ -873,7 +873,7 @@ function rollDraw(done) {
           meter.dauer = Date.now() - start;
           fetch("api/tvlog", { method: "POST", body: JSON.stringify(meter) }).catch(() => {});
         }
-      }, TV ? 700 : 300);
+      }, TV ? 1050 : 300);
     }
   }, TICK);
 }

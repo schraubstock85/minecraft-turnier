@@ -882,6 +882,20 @@ function tone(freq, start, dur, type = "square", vol = .06) {
 }
 function blip(f) { tone(f, 0, .09); }
 function fanfare() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * .13, .22)); }
+// Leiser Dauerregen auf dem Startbild: wenige Teile je Takt, damit der Fernseher mitkommt
+let rainTimer = null;
+function confettiRain() {
+  const colors = ["#5cae3c", "#ffcc33", "#4ee6e0", "#7a5232", "#e74c3c", "#ffffff"];
+  for (let i = 0; i < 2; i++) {
+    const c = el("div", "confetti");
+    c.style.left = Math.random() * 100 + "vw";
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    const dur = 4 + Math.random() * 3;
+    c.style.animationDuration = dur + "s";
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), dur * 1000 + 200);
+  }
+}
 function confetti() {
   const colors = ["#5cae3c", "#ffcc33", "#4ee6e0", "#7a5232", "#e74c3c", "#ffffff"];
   for (let i = 0; i < 120; i++) {
@@ -909,6 +923,8 @@ function renderScreen() {
       confetti();
       fanfare();
     }
+    clearInterval(rainTimer);
+    if (scr === "start") rainTimer = setInterval(confettiRain, 300);
   }
   shownScreen = scr;
   fitKickoff();
@@ -937,10 +953,16 @@ if (TV) {
     audio = new (window.AudioContext || window.webkitAudioContext)();
     if (audio.state !== "running") document.body.classList.add("mute");
     const unlock = () => {
+      if (audio.state === "running") return;
       audio.resume().then(() => {
         if (audio.state === "running") { document.body.classList.remove("mute"); blip(660); }
       });
     };
+    // Home Assistant drückt jede Minute „Pfeil runter“, damit der Bildschirmschoner nicht
+    // anspringt. Die Seite soll darauf nicht reagieren (kein Scrollen, kein Fokuswechsel).
+    document.addEventListener("keydown", ev => {
+      if (ev.keyCode >= 37 && ev.keyCode <= 40) ev.preventDefault();
+    });
     document.addEventListener("click", unlock);
     document.addEventListener("keydown", unlock);
   } catch (e) { /* ohne Web Audio kein Ton */ }

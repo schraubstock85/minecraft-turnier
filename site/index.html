@@ -238,6 +238,8 @@ dialog .row > * { margin-left: 10px; }
 .chip.add { background: linear-gradient(#6fcf4a, #3d8a26); color: #fff; text-shadow: 2px 2px 0 #222; }
 .chip .block { width: 22px; height: 22px; }
 .slot.rolling { animation: roll .09s steps(2) infinite; }
+.slot.landed { animation: land .45s ease-out; }
+@keyframes land { 0% { transform: scale(1.25); filter: brightness(1.6); } 100% { transform: none; filter: none; } }
 @keyframes roll { 50% { filter: brightness(1.3); } }
 
 /* ---------- Schmale Bildschirme: alles untereinander ---------- */
@@ -530,8 +532,9 @@ function render() {
       if (w) cls += w === side ? " winner" : " loser";
       const placeholder = isEntry ? PLAYER_LABEL[src.n] : "???";
       const onClick = ready ? () => pickWinner(m, side) : null;
-      box.appendChild(slotEl({ name, placeholder, cls, onClick, editKey: isEntry && !rollView ? src.n : null,
+      const slot = box.appendChild(slotEl({ name, placeholder, cls, onClick, editKey: isEntry && !rollView ? src.n : null,
                                icon: src.n === "wc" ? "ticket" : "block" }));
+      if (isEntry) slot.dataset.key = src.n;
     });
     let hint = box.parentElement.querySelector(".hint");
     if (!hint) { hint = el("div", "hint"); box.parentElement.appendChild(hint); }
@@ -542,9 +545,10 @@ function render() {
   const wcBox = document.querySelector('[data-match="wc"] .box');
   wcBox.innerHTML = "";
   const wcName = nameOf("wc");
-  wcBox.appendChild(slotEl({ name: wcName, placeholder: "Wildcard", icon: "ticket",
+  const wcSlot = wcBox.appendChild(slotEl({ name: wcName, placeholder: "Wildcard", icon: "ticket",
                              cls: (wcName ? "" : "empty") + (rollView ? " rolling" : ""),
                              onClick: wcName && !rollView ? () => editName("wc") : null }));
+  wcSlot.dataset.key = "wc";
   let wcHint = wcBox.parentElement.querySelector(".hint");
   if (!wcHint) { wcHint = el("div", "hint"); wcBox.parentElement.appendChild(wcHint); }
   wcHint.textContent = "direkt ins Halbfinale";
@@ -729,7 +733,8 @@ document.getElementById("btnShuffle").addEventListener("click", async () => {
   clearResults();
   state.drawId = Date.now();
   lastDrawId = state.drawId;
-  rollDraw(() => save());
+  rollDraw();
+  save();   // sofort speichern, damit der Fernseher gleich mitlost statt erst danach
 });
 document.getElementById("btnClearResults").addEventListener("click", async () => {
   if (!anyResult()) return;
@@ -802,27 +807,42 @@ async function poll(first) {
 
 // ---------- Effekte ----------
 let lastDrawId = 0;
+// Auslosung als Namens-Roulette. Der Fernseher ist langsamer und wird aus Entfernung
+// angeschaut: dort länger und mit ruhigerem Takt, und pro Takt werden nur die Namen
+// getauscht statt die ganze Seite neu aufzubauen.
 function rollDraw(done) {
   const pool = state.pool.length ? state.pool : NAME_KEYS.map(k => state.names[k]);
+  const BASE = TV ? 2500 : 1400, STEP = TV ? 900 : 350, TICK = TV ? 180 : 90;
   const settled = {};
   const start = Date.now();
   rollView = {};
+  NAME_KEYS.forEach(k => { rollView[k] = pool[Math.floor(Math.random() * pool.length)]; });
+  render();
   const tick = setInterval(() => {
     const t = Date.now() - start;
     NAME_KEYS.forEach((k, i) => {
-      if (t > 1400 + i * 350) settled[k] = true;
-      rollView[k] = settled[k] ? state.names[k] : pool[Math.floor(Math.random() * pool.length)];
+      const slot = document.querySelector('.slot[data-key="' + k + '"]');
+      if (settled[k]) return;
+      if (t > BASE + i * STEP) {
+        settled[k] = true;
+        rollView[k] = state.names[k];
+        if (slot) { slot.classList.remove("rolling"); slot.classList.add("landed"); }
+        tone(520 + i * 60, 0, .12, "square", .06);
+      } else rollView[k] = pool[Math.floor(Math.random() * pool.length)];
+      const nm = slot && slot.querySelector(".name");
+      if (nm) nm.textContent = rollView[k];
     });
-    render();
     tone(300 + Math.random() * 500, 0, .04, "square", .03);
     if (Object.keys(settled).length === NAME_KEYS.length) {
       clearInterval(tick);
-      rollView = null;
-      render();
-      fanfare();
-      if (done) done();
+      setTimeout(() => {
+        rollView = null;
+        render();
+        fanfare();
+        if (done) done();
+      }, TV ? 700 : 300);
     }
-  }, 90);
+  }, TICK);
 }
 let audio;
 function tone(freq, start, dur, type = "square", vol = .06) {
@@ -888,7 +908,7 @@ window.addEventListener("resize", fitKickoff);
 
 document.fonts.ready.then(() => { fit(); drawLines(); fitKickoff(); });
 poll(true);
-setInterval(poll, PUBLIC ? 10000 : 3000);
+setInterval(poll, PUBLIC ? 10000 : TV ? 1500 : 3000);
 </script>
 </body>
 </html>

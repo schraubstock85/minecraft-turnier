@@ -886,7 +886,7 @@ function fanfare() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 
 let rainTimer = null;
 function confettiRain() {
   const colors = ["#5cae3c", "#ffcc33", "#4ee6e0", "#7a5232", "#e74c3c", "#ffffff"];
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 3; i++) {
     const c = el("div", "confetti");
     c.style.left = Math.random() * 100 + "vw";
     c.style.background = colors[Math.floor(Math.random() * colors.length)];
